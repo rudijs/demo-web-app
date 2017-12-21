@@ -5,7 +5,18 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
+// https://github.com/RisingStack/example-prometheus-nodejs
+const Prometheus = require('prom-client')
+const metricsInterval = Prometheus.collectDefaultMetrics()
+const httpRequestDurationMicroseconds = new Prometheus.Histogram({
+  name: 'http_request_duration_ms',
+  help: 'Duration of HTTP requests in ms',
+  labelNames: ['method', 'route', 'code'],
+  buckets: [0.10, 5, 15, 50, 100, 200, 300, 400, 500]  // buckets for response time from 0.1ms to 500ms
+})
+
 var index = require('./routes/index');
+var metrics = require('./routes/metrics');
 var users = require('./routes/users');
 
 var app = express();
@@ -23,17 +34,29 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', index);
+app.use('/metrics', metrics);
 app.use('/users', users);
 
+// Runs after each requests
+app.use((req, res, next) => {
+  const responseTimeInMs = Date.now() - res.locals.startEpoch
+
+  httpRequestDurationMicroseconds
+    .labels(req.method, req.route.path, res.statusCode)
+    .observe(responseTimeInMs)
+
+  next()
+})
+
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   var err = new Error('Not Found');
   err.status = 404;
   next(err);
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
