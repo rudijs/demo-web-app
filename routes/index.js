@@ -7,7 +7,7 @@ const metrics = new Lynx('telegraf', 8125)
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
-  metrics.increment('bar')
+  metrics.increment('servicez')
   res.render('index', { title: 'Viseo Hong Kong - Digital Innovation Labs', hostname: os.hostname, timestamp: new Date().toLocaleString() });
 });
 
